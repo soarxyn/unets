@@ -1,3 +1,3 @@
-from .cityscapes import CityscapesDataset
+from .cityscapes import CityscapesDataModule, overlay_mask
 
-__all__ = ["CityscapesDataset"]
+__all__ = ["CityscapesDataModule", "overlay_mask"]
