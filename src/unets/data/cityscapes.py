@@ -7,6 +7,8 @@ from albumentations.core.composition import TransformsSeqType
 from torch.utils.data import DataLoader
 from torchvision.datasets import Cityscapes
 
+cv2.setNumThreads(0)
+
 
 # Based off https://github.com/albumentations-team/autoalbument/blob/c0b18955b0036c753866bedc02c8c2c1fff73ded/examples/cityscapes/dataset.py#L10
 class CityscapesDataset(Cityscapes):
@@ -19,7 +21,7 @@ class CityscapesDataset(Cityscapes):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs, mode="fine", target_type="semantic")
 
-    def encode_segmask(self, mask: np.ndarray):
+    def encode_segmask(self, mask: np.ndarray) -> np.ndarray:
         H, W = mask.shape[:2]
         segmask = np.zeros((H, W, len(self.classmap)), dtype=np.float32)
 
@@ -27,7 +29,7 @@ class CityscapesDataset(Cityscapes):
             segmask[:, :, idx] = (mask == label).astype(float)
         return segmask
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int):
         image = cv2.imread(self.images[index])
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
@@ -123,27 +125,3 @@ class CityscapesDataModule(L.LightningDataModule):
             shuffle=False,
             drop_last=False,
         )
-
-
-if __name__ == "__main__":
-    import albumentations as A
-    from PIL import Image
-
-    dataset = CityscapesDataset(
-        root="./data",
-        split="train",
-        transform=A.Compose(
-            [
-                # A.SmallestMaxSize(max_size=512, p=1.0),
-                # A.RandomCrop(height=256, width=256, p=1.0),
-                # A.SquareSymmetry(p=1.0),
-                # A.RandomBrightnessContrast(p=0.3),
-                # A.GaussNoise(std_range=(0.1, 0.2), p=0.2),
-                # A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-                # A.ToTensorV2(),
-            ]
-        ),
-    )
-    with open("sample.png", mode="wb") as fp:
-        img = Image.fromarray(overlay_mask(dataset[0][0], dataset[0][1]))
-        img.save(fp)
