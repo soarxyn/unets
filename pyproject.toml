@@ -6,9 +6,11 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "albumentationsx>=2.0.9",
+    "beartype>=0.21.0",
     "jaxtyping>=0.3.2",
     "lightning>=2.5.2",
     "marimo[recommended]>=0.14.8",
+    "pytest>=8.4.1",
     "torch==2.7.1",
     "torchtyping>=0.1.5",
     "torchvision>=0.22.0",
@@ -23,6 +25,9 @@ build-backend = "hatchling.build"
 
 [tool.ruff.lint]
 ignore = ["F722"]
+
+[tool.pytest.ini_options]
+addopts = "--jaxtyping-packages=unets,beartype.beartype"
 
 [[tool.uv.index]]
 name = "pytorch-cu126"

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-from jaxtyping import Float
+from beartype import beartype as typechecker
+from jaxtyping import Float, jaxtyped
 from torch import Tensor
 
 
@@ -25,6 +26,7 @@ class ResidualBlock(nn.Module):
 
         self.final_act = activation(inplace=True)
 
+    @jaxtyped(typechecker=typechecker)
     def forward(self, x: Float[Tensor, "N Cin H W"]) -> Float[Tensor, "N Cout H W"]:
         return self.final_act(self.main_path(x) + self.shortcut(x))
 
@@ -39,7 +41,8 @@ class DownscaleBlock(nn.Module):
             nn.MaxPool2d(2), ResidualBlock(in_channels, out_channels, activation)
         )
 
-    def forward(self, x: Float[Tensor, "N C H W"]) -> Float[Tensor, "N C H/2 W/2"]:
+    @jaxtyped(typechecker=typechecker)
+    def forward(self, x: Float[Tensor, "N Cin H W"]) -> Float[Tensor, "N Cout H/2 W/2"]:
         return self.mp_conv(x)
 
 
@@ -48,24 +51,22 @@ class UpscaleBlock(nn.Module):
         self,
         in_channels: int,
         out_channels: int,
-        upscale_mode: str,
         activation: type[nn.Module],
     ):
         super().__init__()
 
-        self.upsample = nn.Upsample(
-            scale_factor=2, mode=upscale_mode, align_corners=True
-        )
+        self.upsample = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
         self.conv = nn.Sequential(
             ResidualBlock(in_channels + out_channels, out_channels, activation),
             ResidualBlock(out_channels, out_channels, activation),
         )
 
+    @jaxtyped(typechecker=typechecker)
     def forward(
         self,
-        feature_map: Float[Tensor, "B Cin H/2 W/2"],
-        skip_connection: Float[Tensor, "B Cout H W"],
-    ) -> Float[Tensor, "B Cout H W"]:
+        feature_map: Float[Tensor, "B Cin H W"],
+        skip_connection: Float[Tensor, "B Cout 2*H 2*W"],
+    ) -> Float[Tensor, "B Cout 2*H 2*W"]:
         feature_map = self.upsample(feature_map)
         feature_map = torch.cat([feature_map, skip_connection], dim=1)
         feature_map = self.conv(feature_map)
