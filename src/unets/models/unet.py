@@ -1,8 +1,6 @@
 from typing import Sequence
 
 import torch.nn as nn
-from beartype import beartype as typechecker
-from jaxtyping import Float, jaxtyped
 from torch import Tensor
 
 from unets.models.modules import DownscaleBlock, ResidualBlock, UpscaleBlock
@@ -26,8 +24,7 @@ class UNetEncoder(nn.Module):
             ]
         )
 
-    @jaxtyped(typechecker=typechecker)
-    def forward(self, x: Float[Tensor, "B C H W"]) -> Sequence[Float[Tensor, "B ..."]]:
+    def forward(self, x):
         features = [x]
 
         x = self.input_block(x)
@@ -66,9 +63,7 @@ class UNetDecoder(nn.Module):
             latent_channels[-1], out_channels, nn.SiLU
         )
 
-    def forward(
-        self, features: Sequence[Float[Tensor, "B ..."]]
-    ) -> Float[Tensor, "B C H W"] | None:
+    def forward(self, features):
         features = features[1:]
         features = features[::-1]
 
@@ -95,5 +90,6 @@ class UNetModel(nn.Module):
         self.encoder = UNetEncoder(in_channels, latent_channels, activation)
         self.decoder = UNetDecoder(out_channels, latent_channels, activation)
 
-    def forward(self, x: Float[Tensor, "B Cin H W"]) -> Float[Tensor, "B Cout H W"]:
-        return self.decoder(self.encoder(x))
+    def forward(self, x):
+        features = self.encoder(x)
+        return self.decoder(features)
