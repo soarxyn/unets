@@ -1,12 +1,13 @@
 import torch
 import torch.nn as nn
-from jaxtyping import Float, jaxtyped
+from jaxtyping import Float
 from torch import Tensor
 
 
-@jaxtyped
 class ResidualBlock(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int, activation: nn.Module):
+    def __init__(
+        self, in_channels: int, out_channels: int, activation: type[nn.Module]
+    ):
         super().__init__()
 
         self.main_path = nn.Sequential(
@@ -28,9 +29,10 @@ class ResidualBlock(nn.Module):
         return self.final_act(self.main_path(x) + self.shortcut(x))
 
 
-@jaxtyped
 class DownscaleBlock(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int, activation: nn.Module):
+    def __init__(
+        self, in_channels: int, out_channels: int, activation: type[nn.Module]
+    ):
         super().__init__()
 
         self.mp_conv = nn.Sequential(
@@ -41,14 +43,13 @@ class DownscaleBlock(nn.Module):
         return self.mp_conv(x)
 
 
-@jaxtyped
 class UpscaleBlock(nn.Module):
     def __init__(
         self,
         in_channels: int,
         out_channels: int,
         upscale_mode: str,
-        activation: nn.Module,
+        activation: type[nn.Module],
     ):
         super().__init__()
 
