@@ -1,5 +1,6 @@
 from typing import Optional, TypedDict
 
+import albumentations as A
 import cv2
 import lightning as L
 import numpy as np
@@ -78,22 +79,22 @@ class CityscapesDataModule(L.LightningDataModule):
         self.num_workers = num_workers
         self.pin_memory = pin_memory
 
-        self.train_transforms = transforms["train"]
-        self.eval_transforms = transforms["eval"]
+        self.train_transforms = A.Compose(transforms["train"])
+        self.eval_transforms = A.Compose(transforms["eval"])
 
     def setup(self, stage: Optional[str] = None):
         if stage == "fit" or stage is None:
             self.train_dataset = CityscapesDataset(
-                self.data_dir, split="train", transforms=self.train_transforms
+                self.data_dir, split="train", transform=self.train_transforms
             )
 
             self.val_dataset = CityscapesDataset(
-                self.data_dir, split="val", transforms=self.eval_transforms
+                self.data_dir, split="val", transform=self.eval_transforms
             )
 
         if stage == "test" or stage is None:
             self.test_dataset = CityscapesDataset(
-                self.data_dir, split="test", transforms=self.eval_transforms
+                self.data_dir, split="test", transform=self.eval_transforms
             )
 
     def train_dataloader(self) -> DataLoader:
