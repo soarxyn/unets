@@ -5,9 +5,10 @@ build/
 dist/
 wheels/
 *.egg-info
+checkpoints/
 
 # Virtual environments
 .venv
-
+lightning_logs/
 data/*
 !data/README.md

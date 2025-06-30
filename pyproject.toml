@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "albumentationsx>=2.0.9",
+    "comet-ml>=3.49.11",
     "lightning>=2.5.2",
     "loguru>=0.7.3",
     "marimo[recommended]>=0.14.8",

@@ -23,8 +23,7 @@ class UNetLitModel(L.LightningModule):
         self.learning_rate = learning_rate
 
         self.model = torch.compile(
-            UNetModel(in_channels, out_channels, latent_channels, activation),
-            mode="max-autotune",
+            UNetModel(in_channels, out_channels, latent_channels, activation)
         )
 
         self.ce_criterion = nn.CrossEntropyLoss()
@@ -39,12 +38,13 @@ class UNetLitModel(L.LightningModule):
     def training_step(self, batch, batch_idx):
         images, one_hot_masks = batch
         one_hot_masks = one_hot_masks.permute((0, 3, 1, 2))
+
         logits = self.forward(images)
 
         ce_loss = self.ce_criterion(logits, one_hot_masks.float())
         dice_loss = self.dice_criterion(logits, one_hot_masks)
 
-        loss = ce_loss + dice_loss
+        loss = dice_loss + ce_loss
 
         self.log("train/loss", loss, on_step=True, on_epoch=True, prog_bar=True)
 
@@ -57,12 +57,14 @@ class UNetLitModel(L.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         images, one_hot_masks = batch
+        one_hot_masks = one_hot_masks.permute((0, 3, 1, 2))
+
         logits = self.forward(images)
 
         ce_loss = self.ce_criterion(logits, one_hot_masks.float())
         dice_loss = self.dice_criterion(logits, one_hot_masks)
 
-        loss = ce_loss + dice_loss
+        loss = dice_loss + ce_loss
 
         integer_masks = torch.argmax(one_hot_masks, dim=1)
         self.val_iou(logits, integer_masks)
