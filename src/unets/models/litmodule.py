@@ -1,12 +1,27 @@
 from typing import Sequence
 
 import lightning as L
+import numpy as np
 import torch
 import torch.nn as nn
 import torchmetrics as tm
 
+from unets.data import overlay_mask
 from unets.models import UNetModel
 from unets.models.modules import DICELoss
+
+
+def unnormalize_image(
+    tensor: torch.Tensor, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)
+):
+    tensor = tensor.clone()
+
+    for t, m, s in zip(tensor, mean, std):
+        t.mul_(s).add_(m)
+
+    tensor = torch.clamp(tensor, 0.0, 1.0)
+
+    return tensor
 
 
 class UNetLitModel(L.LightningModule):
@@ -71,7 +86,36 @@ class UNetLitModel(L.LightningModule):
 
         self.log("val/iou", self.val_iou, on_epoch=True)
 
-        return loss
+        return {"loss": loss, "preds": logits}
+
+    def on_validation_batch_end(self, outputs, batch, batch_idx, dataloader_idx=0):
+        if batch_idx != 0:
+            return
+
+        images, one_hot_masks = batch
+        logits = outputs["preds"]
+
+        image_to_log = images[0]
+        true_mask_to_log = one_hot_masks[0]
+        logits_to_log = logits[0]
+
+        true_mask_int = torch.argmax(true_mask_to_log, dim=-1).cpu().numpy()
+        pred_mask_int = torch.argmax(logits_to_log, dim=0).cpu().numpy()
+
+        viewable_image = unnormalize_image(image_to_log).permute(1, 2, 0).cpu().numpy()
+        viewable_image = (viewable_image * 255).astype(np.uint8)
+        viewable_true_mask = overlay_mask(viewable_image, true_mask_int, 0.5)
+        viewable_pred_mask = overlay_mask(viewable_image, pred_mask_int, 0.5)
+
+        composite_image = np.hstack(
+            [viewable_image, viewable_true_mask, viewable_pred_mask]
+        )
+
+        self.logger.experiment.log_image(
+            composite_image,
+            name=f"Validation Preview",
+            step=self.current_epoch,  # Log against the current epoch
+        )
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)

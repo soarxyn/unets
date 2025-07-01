@@ -48,14 +48,13 @@ class CityscapesDataset(Cityscapes):
 def overlay_mask(image: np.ndarray, mask: np.ndarray, alpha: float = 0.5):
     H, W = mask.shape[:2]
 
-    label_mask = np.argmax(mask, axis=-1)
-    mask = np.zeros((H, W, 3), dtype=np.uint8)
+    overlay = np.zeros((H, W, 3), dtype=np.uint8)
 
     for idx, (_, color) in CityscapesDataset.classmap.items():
-        mask[label_mask == idx] = np.array(color)
+        overlay[mask == idx] = np.array(color)
 
     image = image.reshape(H, W, 3)
-    return cv2.addWeighted(image, 1, mask, alpha, 0)
+    return cv2.addWeighted(image, alpha, overlay, 1 - alpha, 0)
 
 
 class Transforms(TypedDict):
