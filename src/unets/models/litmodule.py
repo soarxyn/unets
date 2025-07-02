@@ -123,7 +123,7 @@ class UNetLitModel(L.LightningModule):
         scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer,
             max_lr=self.learning_rate,
-            total_steps=int(self.trainer.estimated_stepping_batches),
+            total_steps=int(self.trainer.estimated_stepping_batches / 32),
         )
 
         return {
