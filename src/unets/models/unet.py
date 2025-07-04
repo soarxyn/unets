@@ -1,7 +1,6 @@
 from typing import Sequence
 
 import torch.nn as nn
-from torch import Tensor
 
 from unets.models.modules import DownscaleBlock, ResidualBlock, UpscaleBlock
 

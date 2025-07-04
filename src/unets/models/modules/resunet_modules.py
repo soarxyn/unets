@@ -2,9 +2,36 @@ import torch
 import torch.nn as nn
 
 
+class SEBlock(nn.Module):
+    def __init__(self, channels: int, reduction_ratio: int = 16):
+        super().__init__()
+
+        squeezed_channels = max(1, channels // reduction_ratio)
+
+        self.squeeze = nn.AdaptiveAvgPool2d(1)
+        self.excite = nn.Sequential(
+            nn.Linear(channels, squeezed_channels, bias=False),
+            nn.SiLU(),
+            nn.Linear(squeezed_channels, channels, bias=False),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):
+        b, c, _, _ = x.shape
+
+        y = self.squeeze(x).view(b, c)
+        y = self.excite(y).view(b, c, 1, 1)
+
+        return x * y.expand_as(x)
+
+
 class ResidualBlock(nn.Module):
     def __init__(
-        self, in_channels: int, out_channels: int, activation: type[nn.Module]
+        self,
+        in_channels: int,
+        out_channels: int,
+        activation: type[nn.Module],
+        use_se: bool = False,
     ):
         super().__init__()
 
@@ -21,10 +48,15 @@ class ResidualBlock(nn.Module):
             nn.BatchNorm2d(out_channels),
         )
 
+        self.se_block = SEBlock(out_channels) if use_se else nn.Identity()
+
         self.final_act = activation(inplace=True)
 
     def forward(self, x):
-        return self.final_act(self.main_path(x) + self.shortcut(x))
+        main_out = self.main_path(x)
+        main_out = self.se_block(main_out)
+
+        return self.final_act(main_out + self.shortcut(x))
 
 
 class DownscaleBlock(nn.Module):
