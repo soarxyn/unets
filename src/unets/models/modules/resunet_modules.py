@@ -176,13 +176,3 @@ class UpscaleBlockAttention(UpscaleBlock):
         feature_map = torch.cat([feature_map, skip_connection_attn], dim=1)
         feature_map = self.conv(feature_map)
         return feature_map
-
-
-if __name__ == "__main__":
-    up = UpscaleBlockAttention(64, 32, nn.SiLU)
-    print(
-        up(
-            feature_map=torch.randn((1, 64, 64, 64)),
-            skip_connection=torch.randn((1, 32, 128, 128)),
-        )
-    )
