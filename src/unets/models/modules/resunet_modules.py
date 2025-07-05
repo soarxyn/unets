@@ -62,12 +62,17 @@ class ResidualBlock(nn.Module):
 
 class DownscaleBlock(nn.Module):
     def __init__(
-        self, in_channels: int, out_channels: int, activation: type[nn.Module]
+        self,
+        in_channels: int,
+        out_channels: int,
+        activation: type[nn.Module],
+        use_se: bool = False,
     ):
         super().__init__()
 
         self.mp_conv = nn.Sequential(
-            nn.MaxPool2d(2), ResidualBlock(in_channels, out_channels, activation)
+            nn.MaxPool2d(2),
+            ResidualBlock(in_channels, out_channels, activation, use_se=use_se),
         )
 
     def forward(self, x):
@@ -80,13 +85,16 @@ class UpscaleBlock(nn.Module):
         in_channels: int,
         out_channels: int,
         activation: type[nn.Module],
+        use_se: bool = False,
     ):
         super().__init__()
 
         self.upsample = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
         self.conv = nn.Sequential(
-            ResidualBlock(in_channels + out_channels, out_channels, activation),
-            ResidualBlock(out_channels, out_channels, activation),
+            ResidualBlock(
+                in_channels + out_channels, out_channels, activation, use_se=use_se
+            ),
+            ResidualBlock(out_channels, out_channels, activation, use_se=use_se),
         )
 
     def forward(
@@ -151,15 +159,13 @@ class UpscaleBlockAttention(UpscaleBlock):
         in_channels: int,
         out_channels: int,
         activation: type[nn.Module],
+        use_se: bool = False,
     ):
         super().__init__(
-            in_channels=in_channels, out_channels=out_channels, activation=activation
-        )
-
-        self.upsample = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
-        self.conv = nn.Sequential(
-            ResidualBlock(in_channels + out_channels, out_channels, activation),
-            ResidualBlock(out_channels, out_channels, activation),
+            in_channels=in_channels,
+            out_channels=out_channels,
+            activation=activation,
+            use_se=use_se,
         )
 
         self.attention = AttentionGate(

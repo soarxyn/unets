@@ -3,6 +3,7 @@ from typing import Sequence
 import torch.nn as nn
 
 from unets.models.modules import DownscaleBlock, ResidualBlock, UpscaleBlock
+from unets.models.modules.resunet_modules import UpscaleBlockAttention
 
 
 class UNetEncoder(nn.Module):
@@ -11,14 +12,17 @@ class UNetEncoder(nn.Module):
         in_channels: int,
         latent_channels: Sequence[int] = [64, 128, 256, 512, 1024],
         activation: type[nn.Module] = nn.SiLU,
+        use_se: bool = False,
     ):
         super().__init__()
 
-        self.input_block = ResidualBlock(in_channels, latent_channels[0], activation)
+        self.input_block = ResidualBlock(
+            in_channels, latent_channels[0], activation, use_se=use_se
+        )
 
         self.encoder_blocks = nn.ModuleList(
             [
-                DownscaleBlock(scale, next_scale, activation)
+                DownscaleBlock(scale, next_scale, activation, use_se)
                 for scale, next_scale in zip(latent_channels[:-1], latent_channels[1:])
             ]
         )
@@ -42,24 +46,30 @@ class UNetDecoder(nn.Module):
         out_channels: int,
         latent_channels: Sequence[int] = [64, 128, 256, 512, 1024],
         activation: type[nn.Module] = nn.SiLU,
+        use_se: bool = False,
+        use_attention: bool = False,
     ):
         super().__init__()
 
         self.bottleneck = ResidualBlock(
-            latent_channels[-1], latent_channels[-1], activation
+            latent_channels[-1], latent_channels[-1], activation, use_se=use_se
         )
 
         latent_channels = latent_channels[::-1]
 
         self.decoder_blocks = nn.ModuleList(
             [
-                UpscaleBlock(scale, next_scale, activation)
+                (
+                    UpscaleBlock(scale, next_scale, activation, use_se)
+                    if not use_attention
+                    else UpscaleBlockAttention(scale, next_scale, activation, use_se)
+                )
                 for scale, next_scale in zip(latent_channels[:-1], latent_channels[1:])
             ]
         )
 
         self.segmentation_head = ResidualBlock(
-            latent_channels[-1], out_channels, nn.SiLU
+            latent_channels[-1], out_channels, nn.SiLU, use_se=use_se
         )
 
     def forward(self, features):
@@ -83,11 +93,15 @@ class UNetModel(nn.Module):
         out_channels: int,
         latent_channels: Sequence[int] = [64, 128, 256, 512, 1024],
         activation: type[nn.Module] = nn.SiLU,
+        use_se: bool = False,
+        use_attention: bool = False,
     ):
         super().__init__()
 
-        self.encoder = UNetEncoder(in_channels, latent_channels, activation)
-        self.decoder = UNetDecoder(out_channels, latent_channels, activation)
+        self.encoder = UNetEncoder(in_channels, latent_channels, activation, use_se)
+        self.decoder = UNetDecoder(
+            out_channels, latent_channels, activation, use_se, use_attention
+        )
 
     def forward(self, x):
         features = self.encoder(x)
