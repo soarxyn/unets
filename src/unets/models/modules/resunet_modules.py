@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class SEBlock(nn.Module):
@@ -97,3 +98,91 @@ class UpscaleBlock(nn.Module):
         feature_map = torch.cat([feature_map, skip_connection], dim=1)
         feature_map = self.conv(feature_map)
         return feature_map
+
+
+class AttentionGate(nn.Module):
+    def __init__(
+        self,
+        gate_channels: int,
+        in_channels: int,
+        latent_channels: int,
+        activation: type[nn.Module],
+    ):
+        super().__init__()
+
+        self.w_g = nn.Sequential(
+            nn.Conv2d(
+                gate_channels,
+                latent_channels,
+                kernel_size=1,
+                bias=False,
+            ),
+            nn.BatchNorm2d(latent_channels),
+        )
+
+        self.w_x = nn.Sequential(
+            nn.Conv2d(in_channels, latent_channels, kernel_size=1, bias=False),
+            nn.BatchNorm2d(latent_channels),
+        )
+
+        self.psi = nn.Sequential(
+            nn.Conv2d(latent_channels, 1, kernel_size=1, bias=False),
+            nn.BatchNorm2d(1),
+            nn.Sigmoid(),
+        )
+
+        self.activation = activation(inplace=True)
+
+    def forward(self, query, gate):
+        gating = self.w_g(gate)
+        context = self.w_x(query)
+
+        psi = self.activation(gating + context)
+        psi = self.psi(psi)
+
+        attention_map = F.interpolate(psi, size=query.shape[2:], mode="bilinear")
+
+        return query * attention_map
+
+
+class UpscaleBlockAttention(UpscaleBlock):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        activation: type[nn.Module],
+    ):
+        super().__init__(
+            in_channels=in_channels, out_channels=out_channels, activation=activation
+        )
+
+        self.upsample = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
+        self.conv = nn.Sequential(
+            ResidualBlock(in_channels + out_channels, out_channels, activation),
+            ResidualBlock(out_channels, out_channels, activation),
+        )
+
+        self.attention = AttentionGate(
+            in_channels, out_channels, out_channels, activation
+        )
+
+    def forward(
+        self,
+        feature_map,
+        skip_connection,
+    ):
+        feature_map = self.upsample(feature_map)
+        skip_connection_attn = self.attention(query=skip_connection, gate=feature_map)
+        feature_map = torch.cat([feature_map, skip_connection_attn], dim=1)
+        feature_map = self.conv(feature_map)
+        return feature_map
+
+
+if __name__ == "__main__":
+    up = UpscaleBlockAttention(64, 32, nn.SiLU)
+    print(
+        up(
+            feature_map=torch.randn((1, 64, 64, 64)),
+            skip_connection=torch.randn((1, 32, 128, 128)),
+        )
+    )
