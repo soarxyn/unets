@@ -9,6 +9,7 @@ import torchmetrics as tm
 from unets.data import overlay_mask
 from unets.models import UNetModel
 from unets.models.modules import DICELoss
+from unets.models.modules.ranger import Ranger
 
 
 def unnormalize_image(
@@ -118,12 +119,10 @@ class UNetLitModel(L.LightningModule):
         )
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        optimizer = Ranger(self.parameters(), lr=self.learning_rate)
 
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=self.learning_rate,
-            total_steps=int(self.trainer.estimated_stepping_batches / 32),
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=self.trainer.estimated_stepping_batches / 32
         )
 
         return {
